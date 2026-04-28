@@ -4,9 +4,10 @@ const COLLISION_MASK_CARD = 1
 
 var screen_size
 var card_being_dragged
+var card_being_reordered_in_hand: Node2D = null  # Track hand reordering
 var player_hand: Hand  # Reference to the player's hand
 var prev_mouse_pos := Vector2.ZERO
-var max_tilt_deg := 60.0
+var max_tilt_deg := 30.0
 var tilt_smooth := 10.0
 var hover_max_offset := 120.0
 var max_scale_tilt := 0.3
@@ -14,6 +15,7 @@ var move_smooth := 50.0
 var grab_scale_factor := 1.5
 var corner_radius_pixels := 15
 var corner_edge_softness := 1.0
+var hand_reorder_threshold := 150.0  # pixels to stay near hand before entering reorder mode
 
 func _ready() -> void:
 	screen_size = get_viewport_rect().size
@@ -22,7 +24,19 @@ func _ready() -> void:
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
-	if card_being_dragged:
+	# Check if hand reordering card is being dragged too far away
+	if card_being_reordered_in_hand:
+		var mouse_pos = get_global_mouse_position()
+		if player_hand.is_card_dragged_away_from_hand(mouse_pos):
+			# Convert to board drag
+			player_hand.abort_reorder()
+			card_being_reordered_in_hand = null
+			# Now apply board drag effects
+			card_being_dragged.set_meta("base_scale", card_being_dragged.scale * grab_scale_factor)
+			card_being_dragged.z_index = 100
+	
+	# Handle board drag
+	if card_being_dragged and not card_being_reordered_in_hand:
 		var mouse_pos = get_global_mouse_position()
 		# card center always lines up with mouse cursor
 		var desired_pos = mouse_pos
@@ -63,6 +77,15 @@ func _input(event):
 			if card:
 				card_being_dragged = card
 				prev_mouse_pos = get_global_mouse_position()
+				
+				# Check if card is in hand
+				if player_hand and card.get_parent() == player_hand:
+					card_being_reordered_in_hand = card
+					player_hand.start_reorder(card)
+					# Don't apply board drag effects
+					return
+				
+				# Board drag setup
 				# store original state so we can restore on release
 				card.set_meta("orig_scale", card.scale)
 				# make grabbed card slightly larger (base scale while grabbed)
@@ -72,8 +95,15 @@ func _input(event):
 				card.set_meta("orig_z", card.z_index)
 				card.z_index = 100
 		else:
-			# restore original transform when released
-			if card_being_dragged:
+			# Handle release
+			if card_being_reordered_in_hand:
+				# Only finish reorder if still in hand mode
+				player_hand.finish_reorder()
+				card_being_reordered_in_hand = null
+				card_being_dragged = null
+				prev_mouse_pos = Vector2.ZERO
+			elif card_being_dragged:
+				# restore original transform when released (board drag)
 				if card_being_dragged.has_meta("orig_scale"):
 					card_being_dragged.scale = card_being_dragged.get_meta("orig_scale")
 				if card_being_dragged.has_meta("orig_rotation"):
