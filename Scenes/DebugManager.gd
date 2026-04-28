@@ -1,10 +1,12 @@
 extends CanvasLayer
 
 @onready var card_manager: Node = get_parent().get_node("CardManager")
+@onready var player_hand: Hand = get_parent().get_node("Hand")
 
 var card_id_input: LineEdit
 var draw_button: Button
 var clear_button: Button
+var clear_hand_button: Button
 var status_label: Label
 
 func _ready() -> void:
@@ -20,7 +22,7 @@ func create_debug_draw_ui() -> void:
 	panel.offset_left = 16
 	panel.offset_top = 16
 	panel.offset_right = 300
-	panel.offset_bottom = 172
+	panel.offset_bottom = 220
 	add_child(panel)
 
 	var vbox = VBoxContainer.new()
@@ -51,13 +53,19 @@ func create_debug_draw_ui() -> void:
 	clear_button.pressed.connect(_on_clear_button_pressed)
 	vbox.add_child(clear_button)
 
+	clear_hand_button = Button.new()
+	clear_hand_button.name = "ClearHandButton"
+	clear_hand_button.text = "Clear Hand"
+	clear_hand_button.pressed.connect(_on_clear_hand_button_pressed)
+	vbox.add_child(clear_hand_button)
+
 	status_label = Label.new()
 	status_label.name = "StatusLabel"
-	status_label.text = "Press D, Draw Card, or Delete All Cards"
+	status_label.text = "Press =, Draw Card, or Delete"
 	vbox.add_child(status_label)
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_D:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_APOSTROPHE:
 		draw_card_from_input()
 
 func _on_draw_button_pressed() -> void:
@@ -69,6 +77,9 @@ func _on_card_id_submitted(_text: String) -> void:
 func _on_clear_button_pressed() -> void:
 	clear_all_cards()
 
+func _on_clear_hand_button_pressed() -> void:
+	clear_hand()
+
 func draw_card_from_input() -> void:
 	if card_id_input == null or card_manager == null:
 		return
@@ -79,7 +90,7 @@ func draw_card_from_input() -> void:
 			status_label.text = "Enter a card ID first"
 		return
 
-	card_manager.draw_card(card_id)
+	card_manager.draw_card_to_hand(card_id)
 	if status_label:
 		status_label.text = "Drew: %s" % card_id
 
@@ -95,3 +106,15 @@ func clear_all_cards() -> void:
 
 	if status_label:
 		status_label.text = "Deleted %d card(s)" % removed_count
+
+func clear_hand() -> void:
+	if player_hand == null:
+		return
+
+	var removed_count = player_hand.cards.size()
+	for card in player_hand.cards.duplicate():
+		card.queue_free()
+	player_hand.cards.clear()
+
+	if status_label:
+		status_label.text = "Cleared %d card(s) from hand" % removed_count

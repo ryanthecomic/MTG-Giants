@@ -6,7 +6,7 @@
 size = Vector2(376, 524)
 
 [node name="Card" type="Node2D" unique_id=1056199168]
-scale = Vector2(0.6, 0.6)
+scale = Vector2(0.5, 0.5)
 
 [node name="ShadowImage" type="Sprite2D" parent="." unique_id=1728349934]
 modulate = Color(0, 0, 0, 0.22)

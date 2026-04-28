@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://d288q3oiinfpg" path="res://Scenes/CardManager.gd" id="1_bo1nx"]
 [ext_resource type="Script" uid="uid://c1st8t41gcd2j" path="res://Scenes/DebugManager.gd" id="2_debugmgr"]
+[ext_resource type="Script" uid="uid://bf5c8g21h4d2n" path="res://Scenes/Hand.gd" id="3_hand"]
 [ext_resource type="Texture2D" uid="uid://bdol5tuhn4p7f" path="res://Images/BG_Table.png" id="3_8gbba"]
 
 [node name="Main" type="Node2D" unique_id=424223413]
@@ -9,6 +10,9 @@ position = Vector2(254, 270)
 
 [node name="CardManager" type="Node2D" parent="." unique_id=1077361631]
 script = ExtResource("1_bo1nx")
+
+[node name="Hand" type="Node2D" parent="." unique_id=1981855071]
+script = ExtResource("3_hand")
 
 [node name="DebugManager" type="CanvasLayer" parent="." unique_id=1981855070]
 script = ExtResource("2_debugmgr")

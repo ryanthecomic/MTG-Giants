@@ -4,37 +4,39 @@ const COLLISION_MASK_CARD = 1
 
 var screen_size
 var card_being_dragged
-var max_tilt_deg := 15.0
+var player_hand: Hand  # Reference to the player's hand
+var prev_mouse_pos := Vector2.ZERO
+var max_tilt_deg := 60.0
 var tilt_smooth := 10.0
-var hover_max_offset := 160.0
-var max_scale_tilt := 0.03
-var move_smooth := 14.0
-var grab_scale_factor := 1.82
+var hover_max_offset := 120.0
+var max_scale_tilt := 0.3
+var move_smooth := 50.0
+var grab_scale_factor := 1.5
 var corner_radius_pixels := 15
 var corner_edge_softness := 1.0
 
 func _ready() -> void:
 	screen_size = get_viewport_rect().size
+	# Find and reference the player's hand in the scene
+	player_hand = get_parent().get_node_or_null("Hand") as Hand
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
 	if card_being_dragged:
 		var mouse_pos = get_global_mouse_position()
-		# keep grab offset so the click point stays under the cursor
-		var grab_offset = Vector2()
-		if card_being_dragged.has_meta("grab_offset"):
-			grab_offset = card_being_dragged.get_meta("grab_offset")
-		var desired_pos = mouse_pos + grab_offset
+		# card center always lines up with mouse cursor
+		var desired_pos = mouse_pos
 		# smooth movement toward the mouse
 		card_being_dragged.global_position = card_being_dragged.global_position.lerp(desired_pos, clamp(move_smooth * delta, 0, 1))
 
-		# tilt/pinch intensity depends on how far the card still is from the mouse
-		var to_mouse = mouse_pos - card_being_dragged.global_position
-		var dist = to_mouse.length()
-		var intensity = clamp(dist / hover_max_offset, 0.0, 1.0)
+		# calculate mouse velocity for tilt direction
+		var mouse_velocity = mouse_pos - prev_mouse_pos
+		var velocity_magnitude = mouse_velocity.length()
+		var intensity = clamp(velocity_magnitude / hover_max_offset, 0.0, 1.0)
 		var dir = 0.0
-		if hover_max_offset != 0:
-			dir = clamp(to_mouse.x / hover_max_offset, -1.0, 1.0)
+		if velocity_magnitude > 0.1:
+			dir = clamp(mouse_velocity.x / hover_max_offset, -1.0, 1.0)
+		prev_mouse_pos = mouse_pos
 
 		var target_rotation = -dir * deg_to_rad(max_tilt_deg) * intensity
 		card_being_dragged.rotation = lerp_angle(card_being_dragged.rotation, target_rotation, clamp(tilt_smooth * delta, 0, 1))
@@ -48,7 +50,7 @@ func _process(delta: float) -> void:
 		var shadow = card_being_dragged.get_node_or_null("ShadowImage")
 		if shadow:
 			shadow.visible = true
-			shadow.global_position = card_being_dragged.global_position + Vector2(80 + dist * 0.03, 120 + dist * 0.04)
+			shadow.global_position = card_being_dragged.global_position + Vector2(80 + velocity_magnitude * 0.03, 120 + velocity_magnitude * 0.04)
 			shadow.scale = card_being_dragged.scale * 0.96
 			shadow.rotation = card_being_dragged.rotation * 0.7
 			var shadow_alpha = clamp(0.12 + intensity * 0.08, 0.0, 0.22)
@@ -60,10 +62,8 @@ func _input(event):
 			var card = raycast_check_for_card()
 			if card:
 				card_being_dragged = card
-				# store original state and grab offset so the card doesn't jump
-				var mouse_pos = get_global_mouse_position()
-				var grab = card.global_position - mouse_pos
-				card.set_meta("grab_offset", grab)
+				prev_mouse_pos = get_global_mouse_position()
+				# store original state so we can restore on release
 				card.set_meta("orig_scale", card.scale)
 				# make grabbed card slightly larger (base scale while grabbed)
 				card.set_meta("base_scale", card.scale * grab_scale_factor)
@@ -83,7 +83,7 @@ func _input(event):
 				var shadow = card_being_dragged.get_node_or_null("ShadowImage")
 				if shadow:
 					shadow.visible = false
-				card_being_dragged.set_meta("grab_offset", null)
+				prev_mouse_pos = Vector2.ZERO
 				card_being_dragged = null
 # Called when the node enters the scene tree for the first time.
 
@@ -120,6 +120,20 @@ func draw_card(id: String, pos: Vector2 = Vector2(400, 200)) -> Node2D:
 	var shadow = card.get_node_or_null("ShadowImage")
 	if shadow:
 		shadow.visible = false
+	
+	return card
+
+func draw_card_to_hand(id: String) -> Node2D:
+	"""Draw a card directly to the player's hand"""
+	if player_hand == null:
+		push_error("Player hand not found!")
+		return null
+	
+	# Create the card
+	var card = draw_card(id, Vector2.ZERO)  # Position will be handled by hand layout
+	
+	# Move it to the hand's management
+	player_hand.add_card(card)
 	
 	return card
 
