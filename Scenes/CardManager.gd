@@ -10,6 +10,8 @@ var hover_max_offset := 160.0
 var max_scale_tilt := 0.08
 var move_smooth := 14.0
 var grab_scale_factor := 1.08
+var corner_radius_pixels := 15
+var corner_edge_softness := 1.0
 
 func _ready() -> void:
 	screen_size = get_viewport_rect().size
@@ -84,3 +86,90 @@ func raycast_check_for_card():
 	if result.size() > 0:
 		return result[0].collider.get_parent()
 	return null
+
+func draw_card(id: String, pos: Vector2 = Vector2(400, 200)) -> Node2D:
+	# Load and instantiate the card scene
+	var card_scene = load("res://Scenes/card.tscn")
+	var card = card_scene.instantiate()
+	
+	# Add to the scene tree first
+	add_child(card)
+	
+	# Then load the card image and set position
+	var card_image = card.get_node_or_null("CardImage")
+	if card_image:
+		var texture = get_card_texture(id)
+		if texture:
+			card_image.texture = texture
+	card.global_position = pos
+	
+	return card
+
+func get_card_texture(id: String) -> Texture2D:
+	var card_arts_path = "res://Card Arts/Playtest Card Arts/"
+	var dir = DirAccess.open(card_arts_path)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if file_name.begins_with(id) and file_name.ends_with(".png"):
+				var texture = load(card_arts_path + file_name)
+				return prepare_card_texture(texture)
+			file_name = dir.get_next()
+	return null
+
+func prepare_card_texture(texture: Texture2D) -> Texture2D:
+	if texture == null:
+		return null
+
+	var image = texture.get_image()
+	if image == null:
+		return texture
+
+	image.convert(Image.FORMAT_RGBA8)
+	var width = image.get_width()
+	var height = image.get_height()
+	var radius = min(float(corner_radius_pixels), min(float(width), float(height)) * 0.25)
+	radius = max(radius, 0.0)
+
+	for y in range(height):
+		for x in range(width):
+			var alpha_multiplier = get_rounded_corner_alpha(x, y, width, height, radius, corner_edge_softness)
+			if alpha_multiplier < 1.0:
+				var pixel = image.get_pixel(x, y)
+				pixel.a *= alpha_multiplier
+				image.set_pixel(x, y, pixel)
+
+	return ImageTexture.create_from_image(image)
+
+func get_rounded_corner_alpha(x: int, y: int, width: int, height: int, radius: float, softness: float) -> float:
+	if radius <= 0.0:
+		return 1.0
+
+	var inner_left = radius
+	var inner_top = radius
+	var inner_right = float(width - 1) - radius
+	var inner_bottom = float(height - 1) - radius
+
+	if float(x) >= inner_left and float(x) <= inner_right:
+		if float(y) >= inner_top and float(y) <= inner_bottom:
+			return 1.0
+
+	var corner_center = Vector2()
+	if x < radius and y < radius:
+		corner_center = Vector2(radius, radius)
+	elif x >= width - radius and y < radius:
+		corner_center = Vector2(float(width - 1) - radius, radius)
+	elif x < radius and y >= height - radius:
+		corner_center = Vector2(radius, float(height - 1) - radius)
+	elif x >= width - radius and y >= height - radius:
+		corner_center = Vector2(float(width - 1) - radius, float(height - 1) - radius)
+	else:
+		return 1.0
+
+	var distance = corner_center.distance_to(Vector2(x, y))
+	if distance <= radius - softness:
+		return 1.0
+	if distance >= radius:
+		return 0.0
+	return clamp((radius - distance) / max(softness, 0.001), 0.0, 1.0)
