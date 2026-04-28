@@ -13,4 +13,4 @@ script = ExtResource("1_bo1nx")
 position = Vector2(94, 39)
 
 [node name="Card2" parent="CardManager" unique_id=853137156 instance=ExtResource("1_jjgbg")]
-position = Vector2(547, 172)
+position = Vector2(681, 56)
