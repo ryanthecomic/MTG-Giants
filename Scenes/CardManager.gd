@@ -16,6 +16,7 @@ var grab_scale_factor := 1.5
 var corner_radius_pixels := 15
 var corner_edge_softness := 1.0
 var hand_reorder_threshold := 150.0  # pixels to stay near hand before entering reorder mode
+var hand_scroll_step := 1.0
 
 func _ready() -> void:
 	screen_size = get_viewport_rect().size
@@ -71,6 +72,31 @@ func _process(delta: float) -> void:
 			shadow.modulate = Color(0, 0, 0, shadow_alpha)
 
 func _input(event):
+	if event is InputEventKey and event.pressed and player_hand and not card_being_dragged and not card_being_reordered_in_hand:
+		if event.keycode == KEY_LEFT:
+			player_hand.scroll_hand(-hand_scroll_step)
+			return
+		elif event.keycode == KEY_RIGHT:
+			player_hand.scroll_hand(hand_scroll_step)
+			return
+
+	if event is InputEventMouseButton and player_hand and event.pressed and not card_being_dragged and not card_being_reordered_in_hand:
+		var mouse_pos := get_global_mouse_position()
+		if player_hand.is_point_near_hand(mouse_pos):
+			match event.button_index:
+				MOUSE_BUTTON_WHEEL_UP:
+					player_hand.scroll_hand(-hand_scroll_step)
+					return
+				MOUSE_BUTTON_WHEEL_DOWN:
+					player_hand.scroll_hand(hand_scroll_step)
+					return
+				MOUSE_BUTTON_WHEEL_LEFT:
+					player_hand.scroll_hand(-hand_scroll_step)
+					return
+				MOUSE_BUTTON_WHEEL_RIGHT:
+					player_hand.scroll_hand(hand_scroll_step)
+					return
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			var card = raycast_check_for_card()

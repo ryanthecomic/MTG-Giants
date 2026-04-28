@@ -4,7 +4,10 @@ class_name Hand
 
 var cards: Array = []
 var card_spacing := 150.0  # space between cards in hand
+var hand_scroll_offset := 0.0
 var hand_y_offset := 20  # distance from bottom of viewport
+var hand_arc_angle_step := 0.064
+var hand_arc_radius_factor := 0.52
 var hand_base_scale := 0.75  # cards in hand are slightly smaller
 var hand_base_y_offset := 0.0  # base offset before hover
 var hand_sag_step := 12.0  # how much cards drop as they move away from center
@@ -25,6 +28,46 @@ func _process(_delta: float) -> void:
 	update_hover_detection()
 	update_reorder_insertion()
 
+func uses_circular_layout() -> bool:
+	return cards.size() > 11
+
+func get_hand_scroll_limit() -> float:
+	if cards.size() <= 11:
+		return 0.0
+
+	return max(0.0, float(cards.size() - 11))
+
+func clamp_hand_scroll_offset() -> void:
+	var max_scroll = get_hand_scroll_limit()
+	hand_scroll_offset = clamp(hand_scroll_offset, -max_scroll, max_scroll)
+
+func scroll_hand(amount: float) -> void:
+	hand_scroll_offset += amount
+	clamp_hand_scroll_offset()
+
+func is_point_near_hand(pos: Vector2) -> bool:
+	return get_card_at_position(pos) != null
+
+func get_card_target_position(target_index: int, viewport_size: Vector2) -> Vector2:
+	var hand_y = viewport_size.y + hand_y_offset
+
+	if not uses_circular_layout():
+		var spacing = card_spacing
+		var total_width = cards.size() * spacing
+		var start_x = viewport_size.x / 2.0 - total_width / 2.0 + spacing / 2.0
+		var center_index = float(cards.size() - 1) / 2.0
+		var target_x = start_x + target_index * spacing
+		var target_y = hand_y + min(abs(float(target_index) - center_index) * hand_sag_step, hand_sag_max)
+		return Vector2(target_x, target_y)
+
+	var center_index = float(cards.size() - 1) / 2.0 + hand_scroll_offset
+	var relative_index = float(target_index) - center_index
+	var radius = max(viewport_size.x * hand_arc_radius_factor, 360.0)
+	var angle = relative_index * hand_arc_angle_step
+	var target_x = viewport_size.x / 2.0 + sin(angle) * radius
+	var target_y = hand_y + (1.0 - cos(angle)) * radius * 0.85
+	return Vector2(target_x, target_y)
+
 func add_card(card: Node2D) -> void:
 	if card not in cards:
 		cards.append(card)
@@ -41,20 +84,16 @@ func remove_card(card: Node2D) -> void:
 
 func get_card_at_position(pos: Vector2) -> Node2D:
 	"""Returns the card at the given global position, or null"""
-	var viewport_size = get_viewport_rect().size
-	var hand_y = viewport_size.y + hand_y_offset
-	
-	# Check if position is near hand height
-	if abs(pos.y - hand_y) > 100:
+	if cards.is_empty():
 		return null
-	
-	var start_x = (viewport_size.x - cards.size() * card_spacing) / 2.0 + card_spacing / 2.0
+
+	var viewport_size = get_viewport_rect().size
+	var hit_radius = 130.0
 	
 	for i in range(cards.size()):
 		var card = cards[i]
-		var card_x = start_x + i * card_spacing
-		var distance = abs(pos.x - card_x)
-		if distance < card_spacing / 2.0:
+		var card_position = get_card_target_position(i, viewport_size)
+		if pos.distance_to(card_position) <= hit_radius:
 			return card
 	
 	return null
@@ -103,15 +142,14 @@ func update_reorder_insertion() -> void:
 	
 	var mouse_pos = get_global_mouse_position()
 	var viewport_size = get_viewport_rect().size
-	var start_x = (viewport_size.x - cards.size() * card_spacing) / 2.0 + card_spacing / 2.0
 	
 	# Find which slot the card is over
 	var closest_index = reorder_original_index
 	var closest_distance = 999999.0
 	
 	for i in range(cards.size()):
-		var slot_x = start_x + i * card_spacing
-		var distance = abs(mouse_pos.x - slot_x)
+		var slot_position = get_card_target_position(i, viewport_size)
+		var distance = mouse_pos.distance_to(slot_position)
 		if distance < closest_distance:
 			closest_distance = distance
 			closest_index = i
@@ -136,17 +174,10 @@ func update_hand_layout() -> void:
 		return
 
 	var viewport_size = get_viewport_rect().size
-	var hand_y = viewport_size.y + hand_y_offset
-
-	# Calculate total width of all cards
-	var total_width = cards.size() * card_spacing
-
-	# Start position (centered horizontally)
-	var start_x = (viewport_size.x - total_width) / 2.0 + card_spacing / 2.0
+	clamp_hand_scroll_offset()
 
 	for i in range(cards.size()):
 		var card = cards[i]
-		var center_index = float(cards.size() - 1) / 2.0
 		
 		# If a card is being reordered, position it at the mouse cursor
 		if card == card_being_reordered:
@@ -162,23 +193,25 @@ func update_hand_layout() -> void:
 				target_index = i + 1
 			elif i > insertion_index and i != reorder_original_index:
 				target_index = i
-		
-		var target_x = start_x + target_index * card_spacing
-		var center_distance = abs(float(target_index) - center_index)
-		var target_y = hand_y + min(center_distance * hand_sag_step, hand_sag_max)
+
+		var target_position = get_card_target_position(target_index, viewport_size)
 		
 		# Apply hover lift
 		if card == hovered_card and card != card_being_reordered:
-			target_y -= hover_lift_amount
+			target_position.y = viewport_size.y + hand_y_offset - hover_lift_amount - 50
 		
 		# Smooth movement to target position
-		card.global_position = card.global_position.lerp(Vector2(target_x, target_y), 0.15)
+		card.global_position = card.global_position.lerp(target_position, 0.15)
 
 		# Slight fan effect based on position (no tilt when hovering)
 		var target_rotation = 0.0
 		if card != hovered_card:
-			var fan_angle = (float(target_index) - float(cards.size() - 1) / 2.0) * 0.05
-			target_rotation = fan_angle
+			if uses_circular_layout():
+				var angle = (float(target_index) - (float(cards.size() - 1) / 2.0 + hand_scroll_offset)) * hand_arc_angle_step
+				target_rotation = angle * 0.42
+			else:
+				var fan_angle = (float(target_index) - float(cards.size() - 1) / 2.0) * 0.05
+				target_rotation = fan_angle
 		card.rotation = lerp(card.rotation, target_rotation, 0.12)
 
 		# Handle scale based on hover
