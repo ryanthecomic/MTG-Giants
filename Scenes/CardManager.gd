@@ -4,12 +4,12 @@ const COLLISION_MASK_CARD = 1
 
 var screen_size
 var card_being_dragged
-var max_tilt_deg := 12.0
+var max_tilt_deg := 15.0
 var tilt_smooth := 10.0
 var hover_max_offset := 160.0
-var max_scale_tilt := 0.08
+var max_scale_tilt := 0.03
 var move_smooth := 14.0
-var grab_scale_factor := 1.08
+var grab_scale_factor := 1.82
 var corner_radius_pixels := 15
 var corner_edge_softness := 1.0
 
@@ -39,12 +39,20 @@ func _process(delta: float) -> void:
 		var target_rotation = -dir * deg_to_rad(max_tilt_deg) * intensity
 		card_being_dragged.rotation = lerp_angle(card_being_dragged.rotation, target_rotation, clamp(tilt_smooth * delta, 0, 1))
 
-		# apply pinch/scale with grabbed cards slightly larger
+		# apply a uniform scale so the card keeps its aspect ratio
 		var base_scale = card_being_dragged.get_meta("base_scale") if card_being_dragged.has_meta("base_scale") else card_being_dragged.scale
-		var s_x = base_scale.x + abs(dir) * max_scale_tilt * intensity
-		var s_y = base_scale.y - abs(dir) * max_scale_tilt * intensity
-		var target_scale = Vector2(s_x, s_y)
+		var scale_boost = 1.0 + abs(dir) * max_scale_tilt * intensity
+		var target_scale = base_scale * scale_boost
 		card_being_dragged.scale = card_being_dragged.scale.lerp(target_scale, clamp(tilt_smooth * delta, 0, 1))
+
+		var shadow = card_being_dragged.get_node_or_null("ShadowImage")
+		if shadow:
+			shadow.visible = true
+			shadow.global_position = card_being_dragged.global_position + Vector2(80 + dist * 0.03, 120 + dist * 0.04)
+			shadow.scale = card_being_dragged.scale * 0.96
+			shadow.rotation = card_being_dragged.rotation * 0.7
+			var shadow_alpha = clamp(0.12 + intensity * 0.08, 0.0, 0.22)
+			shadow.modulate = Color(0, 0, 0, shadow_alpha)
 
 func _input(event):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -72,6 +80,9 @@ func _input(event):
 					card_being_dragged.rotation = card_being_dragged.get_meta("orig_rotation")
 				if card_being_dragged.has_meta("orig_z"):
 					card_being_dragged.z_index = card_being_dragged.get_meta("orig_z")
+				var shadow = card_being_dragged.get_node_or_null("ShadowImage")
+				if shadow:
+					shadow.visible = false
 				card_being_dragged.set_meta("grab_offset", null)
 				card_being_dragged = null
 # Called when the node enters the scene tree for the first time.
@@ -97,11 +108,18 @@ func draw_card(id: String, pos: Vector2 = Vector2(400, 200)) -> Node2D:
 	
 	# Then load the card image and set position
 	var card_image = card.get_node_or_null("CardImage")
+	var shadow_image = card.get_node_or_null("ShadowImage")
 	if card_image:
 		var texture = get_card_texture(id)
 		if texture:
 			card_image.texture = texture
+			if shadow_image:
+				shadow_image.texture = texture
+				shadow_image.visible = false
 	card.global_position = pos
+	var shadow = card.get_node_or_null("ShadowImage")
+	if shadow:
+		shadow.visible = false
 	
 	return card
 

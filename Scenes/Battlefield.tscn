@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://bd4hqx8ic73nf"]
+
+[ext_resource type="VideoStream" uid="uid://d03cnae6w8o0v" path="res://Images/TableBG.ogv" id="1_v2gpm"]
+
+[sub_resource type="ViewportTexture" id="ViewportTexture_ekkc3"]
+viewport_path = NodePath("Sprite2D/SubViewport")
+
+[node name="Battlefield" type="Node2D" unique_id=1760148992]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1288957266]
+position = Vector2(658.50006, 370.49997)
+scale = Vector2(2.7949216, 1.6699218)
+texture = SubResource("ViewportTexture_ekkc3")
+
+[node name="SubViewport" type="SubViewport" parent="Sprite2D" unique_id=1374839646]
+
+[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="Sprite2D/SubViewport" unique_id=1649224123]
+offset_right = 40.0
+offset_bottom = 40.0
+stream = ExtResource("1_v2gpm")
+autoplay = true
+loop = true
