@@ -17,11 +17,10 @@ config/icon="res://icon.svg"
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
-window/size/resizable=false
+window/size/viewport_width=1920
+window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
-mouse_cursor/custom_image="res://Images/Cursor.cur"
+mouse_cursor/custom_image="uid://d0rbclncmuk13"
 mouse_cursor/size/viewport_height=720
 
 [physics]

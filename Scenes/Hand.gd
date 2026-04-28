@@ -5,9 +5,9 @@ class_name Hand
 var cards: Array = []
 var card_spacing := 150.0  # space between cards in hand
 var hand_y_offset := 20  # distance from bottom of viewport
-var hand_base_scale := 0.6  # cards in hand are slightly smaller
+var hand_base_scale := 0.75  # cards in hand are slightly smaller
 var hand_base_y_offset := 0.0  # base offset before hover
-var hand_sag_step := 20.0  # how much cards drop as they move away from center
+var hand_sag_step := 12.0  # how much cards drop as they move away from center
 var hand_sag_max := 120.0  # maximum drop for far-out cards
 var hover_lift_amount := 200.0  # how much cards lift on hover (now jumps up significantly)
 var hover_scale_boost := 1.15  # scale boost on hover (increased for more prominence)
@@ -20,7 +20,7 @@ var hovered_card: Node2D = null
 func _ready() -> void:
 	update_hand_layout()
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	update_hand_layout()
 	update_hover_detection()
 	update_reorder_insertion()
