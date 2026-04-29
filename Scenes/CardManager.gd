@@ -1,5 +1,7 @@
 extends Node2D
 
+class_name CardManager
+
 const COLLISION_MASK_CARD = 1
 
 var screen_size

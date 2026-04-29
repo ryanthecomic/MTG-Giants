@@ -2,12 +2,16 @@ extends CanvasLayer
 
 @onready var card_manager: Node = get_parent().get_node("CardManager")
 @onready var player_hand: Hand = get_parent().get_node("Hand")
+@onready var game_state: GameState = get_parent().get_node_or_null("GameState") as GameState
 
 var card_id_input: LineEdit
 var draw_button: Button
 var clear_button: Button
 var clear_hand_button: Button
 var status_label: Label
+var turn_label: Label
+var priority_label: Label
+var stack_label: Label
 
 func _ready() -> void:
 	create_debug_draw_ui()
@@ -64,6 +68,24 @@ func create_debug_draw_ui() -> void:
 	status_label.text = "Press =, Draw Card, or Delete"
 	vbox.add_child(status_label)
 
+	turn_label = Label.new()
+	turn_label.name = "TurnLabel"
+	turn_label.text = "Turn: -"
+	vbox.add_child(turn_label)
+
+	priority_label = Label.new()
+	priority_label.name = "PriorityLabel"
+	priority_label.text = "Priority: -"
+	vbox.add_child(priority_label)
+
+	stack_label = Label.new()
+	stack_label.name = "StackLabel"
+	stack_label.text = "Stack: 0"
+	vbox.add_child(stack_label)
+
+	bind_game_state()
+	refresh_game_state_labels()
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_APOSTROPHE:
 		draw_card_from_input()
@@ -118,3 +140,47 @@ func clear_hand() -> void:
 
 	if status_label:
 		status_label.text = "Cleared %d card(s) from hand" % removed_count
+
+func bind_game_state() -> void:
+	if game_state == null:
+		return
+
+	if not game_state.game_state_changed.is_connected(_on_game_state_changed):
+		game_state.game_state_changed.connect(_on_game_state_changed)
+	if not game_state.turn_started.is_connected(_on_turn_state_changed):
+		game_state.turn_started.connect(_on_turn_state_changed)
+	if not game_state.turn_ended.is_connected(_on_turn_state_changed):
+		game_state.turn_ended.connect(_on_turn_state_changed)
+	if not game_state.phase_changed.is_connected(_on_phase_changed):
+		game_state.phase_changed.connect(_on_phase_changed)
+	if not game_state.priority_changed.is_connected(_on_priority_changed):
+		game_state.priority_changed.connect(_on_priority_changed)
+	if not game_state.stack_changed.is_connected(_on_stack_changed):
+		game_state.stack_changed.connect(_on_stack_changed)
+
+func refresh_game_state_labels() -> void:
+	if game_state == null:
+		return
+
+	var summary := game_state.get_state_summary()
+	if turn_label:
+		turn_label.text = "Turn: %d | Phase: %s | Active: P%d" % [summary["turn_number"], summary["phase"], summary["active_player_index"]]
+	if priority_label:
+		priority_label.text = "Priority: P%d | Passes: %d" % [summary["priority_player_index"], summary["priority_pass_count"]]
+	if stack_label:
+		stack_label.text = "Stack: %d" % summary["stack_size"]
+
+func _on_game_state_changed() -> void:
+	refresh_game_state_labels()
+
+func _on_turn_state_changed(_active_player_index: int, _turn_number: int) -> void:
+	refresh_game_state_labels()
+
+func _on_phase_changed(_active_player_index: int, _phase_name: String) -> void:
+	refresh_game_state_labels()
+
+func _on_priority_changed(_player_index: int) -> void:
+	refresh_game_state_labels()
+
+func _on_stack_changed(_stack_size: int) -> void:
+	refresh_game_state_labels()

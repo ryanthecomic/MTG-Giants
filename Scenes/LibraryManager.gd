@@ -7,6 +7,7 @@ const CARD_BACK_TEXTURE := preload("res://Images/sleeve_weathered_cardback.png")
 const MAX_STACK_PREVIEW := 7
 
 @onready var card_manager: Node = get_parent().get_node_or_null("CardManager")
+@onready var game_state: GameState = get_parent().get_node_or_null("GameState") as GameState
 
 @export var starting_deck_ids: Array[String] = [
 	"CR03",
@@ -27,7 +28,6 @@ const MAX_STACK_PREVIEW := 7
 	"CG33"
 ]
 
-var library_cards: Array[String] = []
 var top_card_revealed := false
 var library_panel: PanelContainer
 var count_label: Label
@@ -37,6 +37,7 @@ var preview_children: Array = []
 
 func _ready() -> void:
 	create_library_debug_ui()
+	bind_game_state()
 	reset_library()
 	update_preview_card()
 
@@ -93,19 +94,27 @@ func create_library_debug_ui() -> void:
 	vbox.add_child(status_label)
 
 func reset_library() -> void:
-	library_cards = starting_deck_ids.duplicate()
 	top_card_revealed = false
-	update_status("Deck carregado com %d cartas" % library_cards.size())
+	if game_state:
+		game_state.start_local_match(starting_deck_ids)
+		update_status("Deck carregado com %d cartas" % game_state.get_library_cards().size())
+	else:
+		update_status("GameState não encontrado")
 	update_count_label()
 
 func draw_from_library() -> void:
-	if library_cards.is_empty():
+	if game_state == null:
+		update_status("GameState não encontrado")
+		return
+
+	if game_state.get_library_cards().is_empty():
 		update_status("Library vazia")
 		return
 
-	var card_id: String = library_cards.pop_back()
-	if card_manager and card_manager.has_method("draw_card_to_hand"):
-		card_manager.draw_card_to_hand(card_id)
+	var card_id := game_state.draw_card()
+	if card_id.is_empty():
+		update_status("Não foi possível comprar")
+		return
 
 	top_card_revealed = false
 	update_status("Comprou: %s" % card_id)
@@ -113,27 +122,72 @@ func draw_from_library() -> void:
 	update_preview_card()
 
 func shuffle_library() -> void:
-	library_cards.shuffle()
+	if game_state:
+		game_state.shuffle_library()
+	else:
+		update_status("GameState não encontrado")
 	top_card_revealed = false
 	update_status("Deck embaralhado")
 	update_preview_card()
 
 func reveal_top_card() -> void:
-	if library_cards.is_empty():
+	if game_state == null or game_state.get_library_cards().is_empty():
 		update_status("Library vazia")
 		return
 
 	top_card_revealed = true
-	update_status("Topo revelado: %s" % library_cards.back())
+	update_status("Topo revelado: %s" % game_state.get_library_cards().back())
 	update_preview_card()
 
 func update_count_label() -> void:
 	if count_label:
-		count_label.text = "Cartas no deck: %d" % library_cards.size()
+		var count := 0
+		if game_state:
+			count = game_state.get_library_cards().size()
+		count_label.text = "Cartas no deck: %d" % count
 
 func update_status(message: String) -> void:
 	if status_label:
 		status_label.text = message
+
+func bind_game_state() -> void:
+	if game_state == null:
+		return
+
+	if not game_state.match_initialized.is_connected(_on_match_initialized):
+		game_state.match_initialized.connect(_on_match_initialized)
+	if not game_state.game_state_changed.is_connected(_on_game_state_changed):
+		game_state.game_state_changed.connect(_on_game_state_changed)
+	if not game_state.player_zone_changed.is_connected(_on_player_zone_changed):
+		game_state.player_zone_changed.connect(_on_player_zone_changed)
+	if not game_state.card_drawn.is_connected(_on_card_drawn):
+		game_state.card_drawn.connect(_on_card_drawn)
+	if not game_state.library_shuffled.is_connected(_on_library_shuffled):
+		game_state.library_shuffled.connect(_on_library_shuffled)
+
+func _on_match_initialized() -> void:
+	update_count_label()
+	update_preview_card()
+
+func _on_game_state_changed() -> void:
+	update_count_label()
+	update_preview_card()
+
+func _on_player_zone_changed(player_index: int, zone_name: String) -> void:
+	if player_index != 0:
+		return
+
+	if zone_name == "library":
+		update_count_label()
+		update_preview_card()
+
+func _on_card_drawn(player_index: int, card_id: String) -> void:
+	if player_index == 0:
+		update_status("Comprou: %s" % card_id)
+
+func _on_library_shuffled(player_index: int) -> void:
+	if player_index == 0:
+		update_status("Deck embaralhado")
 
 func ensure_preview_card() -> void:
 	if preview_container != null:
@@ -171,6 +225,7 @@ func update_preview_position() -> void:
 	preview_container.global_position = Vector2(190, viewport_size.y - 350)
 
 func update_preview_card() -> void:
+	var library_cards := get_library_cards()
 	if library_cards.is_empty():
 		if preview_container:
 			preview_container.visible = false
@@ -218,6 +273,11 @@ func update_preview_card() -> void:
 			card_image.texture = CARD_BACK_TEXTURE
 
 	update_preview_position()
+
+func get_library_cards() -> Array[String]:
+	if game_state:
+		return game_state.get_library_cards()
+	return starting_deck_ids.duplicate()
 
 func get_stack_count(cards_count: int) -> int:
 	if cards_count >= 60:
