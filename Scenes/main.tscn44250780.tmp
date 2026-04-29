@@ -17,6 +17,11 @@ script = ExtResource("3_hand")
 
 [node name="GameState" type="Node" parent="." unique_id=1981855073]
 script = ExtResource("5_gamestate")
+starting_life_total = null
+max_players = null
+local_player_index = null
+local_player_name = null
+starting_deck_ids = null
 
 [node name="DebugManager" type="CanvasLayer" parent="." unique_id=1981855070]
 script = ExtResource("2_debugmgr")

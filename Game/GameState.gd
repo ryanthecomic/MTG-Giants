@@ -4,16 +4,16 @@ class_name GameState
 
 signal match_initialized
 signal game_state_changed
-signal player_zone_changed(player_index: int, zone_name: String)
-signal card_drawn(player_index: int, card_id: String)
-signal library_shuffled(player_index: int)
-signal life_changed(player_index: int, life_total: int)
-signal turn_started(active_player_index: int, turn_number: int)
-signal turn_ended(active_player_index: int, turn_number: int)
-signal phase_changed(active_player_index: int, phase_name: String)
-signal priority_changed(player_index: int)
-signal stack_changed(stack_size: int)
-signal action_logged(message: String)
+signal player_zone_changed(player_index, zone_name)
+signal card_drawn(player_index, card_id)
+signal library_shuffled(player_index)
+signal life_changed(player_index, life_total)
+signal turn_started(active_player_index, turn_number)
+signal turn_ended(active_player_index, turn_number)
+signal phase_changed(active_player_index, phase_name)
+signal priority_changed(player_index)
+signal stack_changed(stack_size)
+signal action_logged(message)
 
 enum TurnPhase {
 	UNTAP,
@@ -62,6 +62,7 @@ var current_phase: TurnPhase = TurnPhase.UNTAP
 var priority_player_index: int = -1
 var priority_pass_count: int = 0
 var stack_items: Array[Dictionary] = []
+var action_history: Array[Dictionary] = []
 
 func _ready() -> void:
 	call_deferred("_bootstrap_local_match")
@@ -125,6 +126,9 @@ func draw_card(player_index: int = local_player_index) -> String:
 		return ""
 
 	player.hand.add_card(card_id)
+	# Log action for undo
+	action_history.append({"type":"draw","player":player_index,"card_id":card_id})
+	emit_signal("action_logged", "Draw: %s" % card_id)
 	emit_signal("card_drawn", player_index, card_id)
 	emit_signal("player_zone_changed", player_index, "library")
 	emit_signal("player_zone_changed", player_index, "hand")
@@ -264,6 +268,8 @@ func add_stack_item(source_player_index: int, item_type: String, card_id: String
 		"description": description,
 	}
 	stack_items.append(entry)
+	# record stack add for undo
+	action_history.append({"type":"stack_add","entry":entry})
 	clear_priority_passes()
 	priority_player_index = active_player_index
 	emit_signal("stack_changed", stack_items.size())
@@ -276,6 +282,8 @@ func resolve_top_of_stack() -> Dictionary:
 		return {}
 
 	var entry: Dictionary = stack_items.pop_back()
+	# Log resolve so it can be undone
+	action_history.append({"type":"stack_resolve","entry":entry})
 	emit_signal("stack_changed", stack_items.size())
 	emit_signal("action_logged", "Resolve: %s" % get_stack_entry_label(entry))
 	emit_signal("game_state_changed")
@@ -297,7 +305,11 @@ func shuffle_library(player_index: int = local_player_index) -> void:
 	if player == null:
 		return
 
+	# record previous order for undo
+	var prev := player.library.duplicate_cards()
 	player.shuffle_library()
+	action_history.append({"type":"shuffle","player":player_index,"prev_order":prev})
+	emit_signal("action_logged", "Shuffle")
 	emit_signal("library_shuffled", player_index)
 	emit_signal("player_zone_changed", player_index, "library")
 	emit_signal("game_state_changed")
@@ -316,7 +328,10 @@ func change_player_life(player_index: int, life_delta: int) -> void:
 	if player == null:
 		return
 
+	# Log life change so it can be undone
+	action_history.append({"type":"life","player":player_index,"delta":life_delta})
 	set_player_life(player_index, player.life_total + life_delta)
+	emit_signal("action_logged", "Life %+d for P%d" % [life_delta, player_index])
 
 func get_state_summary() -> Dictionary:
 	return {
@@ -327,3 +342,70 @@ func get_state_summary() -> Dictionary:
 		"stack_size": stack_items.size(),
 		"priority_pass_count": priority_pass_count,
 	}
+
+func undo_last_action() -> bool:
+	if action_history.is_empty():
+		emit_signal("action_logged", "No actions to undo")
+		return false
+
+	var entry: Dictionary = action_history.pop_back()
+	var t: String = String(entry.get("type", ""))
+	if t == "draw":
+		var player_index: int = int(entry.get("player", 0))
+		var p: PlayerState = get_player_state(player_index)
+		if p:
+			var card_id: String = String(entry.get("card_id", ""))
+			# remove card from hand if present and put back on top of library
+			for i in range(p.hand.cards.size() - 1, -1, -1):
+				var idx: int = i
+				if p.hand.cards[idx] == card_id:
+					p.hand.cards.remove_at(idx)
+					break
+			p.library.cards.append(card_id)
+			emit_signal("action_logged", "Undo Draw: %s" % card_id)
+			emit_signal("player_zone_changed", player_index, "library")
+			emit_signal("player_zone_changed", player_index, "hand")
+			emit_signal("game_state_changed")
+			return true
+		# draw branch fell through (player missing)
+		return false
+	elif t == "shuffle":
+		var player_index2: int = int(entry.get("player", 0))
+		var p2: PlayerState = get_player_state(player_index2)
+		if p2 and entry.has("prev_order"):
+			p2.library.cards = entry["prev_order"].duplicate()
+			emit_signal("action_logged", "Undo Shuffle")
+			emit_signal("player_zone_changed", player_index2, "library")
+			emit_signal("game_state_changed")
+			return true
+		# shuffle branch could not be undone (no prev_order or no player)
+		return false
+	elif t == "life":
+		var player_index3: int = int(entry.get("player", 0))
+		var p3: PlayerState = get_player_state(player_index3)
+		if p3:
+			set_player_life(player_index3, p3.life_total - int(entry.get("delta", 0)))
+			emit_signal("action_logged", "Undo Life %+d" % int(entry.get("delta", 0)))
+			return true
+		# life branch could not be undone (player missing)
+		return false
+	elif t == "stack_add":
+		if not stack_items.is_empty():
+			var last: Dictionary = stack_items[stack_items.size() - 1]
+			if last == entry["entry"]:
+				stack_items.pop_back()
+				emit_signal("action_logged", "Undo Stack Add")
+				emit_signal("stack_changed", stack_items.size())
+				return true
+			return false
+		# stack_add branch could not be undone (stack empty)
+		return false
+	elif t == "stack_resolve":
+		stack_items.append(entry["entry"])
+		emit_signal("action_logged", "Undo Resolve")
+		emit_signal("stack_changed", stack_items.size())
+		emit_signal("game_state_changed")
+		return true
+	else:
+		emit_signal("action_logged", "Unknown action to undo")
+		return false

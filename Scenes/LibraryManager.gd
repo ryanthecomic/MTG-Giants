@@ -47,13 +47,15 @@ func _process(_delta: float) -> void:
 func create_library_debug_ui() -> void:
 	library_panel = PanelContainer.new()
 	library_panel.name = "LibraryPanel"
-	library_panel.anchor_left = 0.0
-	library_panel.anchor_right = 0.0
+	# anchor to top-right and set offsets so panel sits in the upper-right corner
+	library_panel.anchor_left = 1.0
+	library_panel.anchor_right = 1.0
 	library_panel.anchor_top = 0.0
 	library_panel.anchor_bottom = 0.0
-	library_panel.offset_left = 16
+	# offsets are relative to anchors; use negative left offset to set width
+	library_panel.offset_left = -346
 	library_panel.offset_top = 16
-	library_panel.offset_right = 330
+	library_panel.offset_right = -16
 	library_panel.offset_bottom = 240
 	add_child(library_panel)
 
