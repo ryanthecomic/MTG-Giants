@@ -80,7 +80,7 @@ func create_debug_draw_ui() -> void:
 	hotkeys_label = Label.new()
 	hotkeys_label.name = "HotkeysLabel"
 	hotkeys_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hotkeys_label.text = "F1: hide/show | Space: priority | N: next phase | E: end turn | R: resolve stack | D: draw | S: shuffle | +/-: life"
+	hotkeys_label.text = "F1: hide | Space: priority | N: phase | E: end turn | R: resolve | D: draw | S: shuffle | +/-: life | Z: undo"
 	root_vbox.add_child(hotkeys_label)
 
 	root_vbox.add_child(create_separator())

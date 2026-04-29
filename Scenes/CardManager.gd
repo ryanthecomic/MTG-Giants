@@ -164,6 +164,10 @@ func draw_card(id: String, pos: Vector2 = Vector2(400, 200)) -> Node2D:
 	# Add to the scene tree first
 	add_child(card)
 	
+	# Set the card_id in the Card.gd script for drag-and-drop support
+	if "card_id" in card:
+		card.card_id = id
+	
 	# Then load the card image and set position
 	var card_image = card.get_node_or_null("CardImage")
 	var shadow_image = card.get_node_or_null("ShadowImage")

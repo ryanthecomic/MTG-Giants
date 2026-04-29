@@ -116,6 +116,62 @@ func get_hand_cards(player_index: int = local_player_index) -> Array[String]:
 		return []
 	return player.get_hand_cards()
 
+func get_battlefield_cards(player_index: int) -> Array[String]:
+	var player := get_player_state(player_index)
+	if player == null:
+		return []
+	return player.battlefield.duplicate_cards()
+
+func play_card_to_battlefield(player_index: int, card_id: String) -> bool:
+	# Move a card from hand to battlefield
+	var player := get_player_state(player_index)
+	if player == null:
+		return false
+	
+	var ok = player.move_card_to_battlefield(card_id)
+	if ok:
+		action_history.append({"type":"play","player":player_index,"card_id":card_id})
+		emit_signal("action_logged", "Played: %s" % card_id)
+		emit_signal("player_zone_changed", player_index, "hand")
+		emit_signal("player_zone_changed", player_index, "battlefield")
+		emit_signal("game_state_changed")
+	return ok
+
+func toggle_tap_on_battlefield(player_index: int, card_id: String) -> bool:
+	# Toggle tap state of card on battlefield
+	var player := get_player_state(player_index)
+	if player == null:
+		return false
+	
+	var ok = player.toggle_tap_card(card_id)
+	if ok:
+		var tapped = player.is_card_tapped(card_id)
+		action_history.append({"type":"tap_toggle","player":player_index,"card_id":card_id,"tapped":tapped})
+		emit_signal("action_logged", "%s: %s" % ["Tap" if tapped else "Untap", card_id])
+		emit_signal("player_zone_changed", player_index, "battlefield")
+		emit_signal("game_state_changed")
+	return ok
+
+func remove_card_from_battlefield(player_index: int, card_id: String) -> bool:
+	# Remove card from battlefield
+	var player := get_player_state(player_index)
+	if player == null:
+		return false
+	
+	var ok = player.remove_card_from_battlefield(card_id)
+	if ok:
+		action_history.append({"type":"remove_from_battlefield","player":player_index,"card_id":card_id})
+		emit_signal("action_logged", "Removed: %s" % card_id)
+		emit_signal("player_zone_changed", player_index, "battlefield")
+		emit_signal("game_state_changed")
+	return ok
+
+func is_card_tapped_on_battlefield(player_index: int, card_id: String) -> bool:
+	var player := get_player_state(player_index)
+	if player == null:
+		return false
+	return player.is_card_tapped(card_id)
+
 func draw_card(player_index: int = local_player_index) -> String:
 	var player := get_player_state(player_index)
 	if player == null:
@@ -406,6 +462,43 @@ func undo_last_action() -> bool:
 		emit_signal("stack_changed", stack_items.size())
 		emit_signal("game_state_changed")
 		return true
+	elif t == "play":
+		var player_index4: int = int(entry.get("player", 0))
+		var p4: PlayerState = get_player_state(player_index4)
+		if p4:
+			var card_id: String = String(entry.get("card_id", ""))
+			p4.remove_card_from_battlefield(card_id)
+			p4.hand.add_card(card_id)
+			emit_signal("action_logged", "Undo Play: %s" % card_id)
+			emit_signal("player_zone_changed", player_index4, "battlefield")
+			emit_signal("player_zone_changed", player_index4, "hand")
+			emit_signal("game_state_changed")
+			return true
+		return false
+	elif t == "tap_toggle":
+		var player_index5: int = int(entry.get("player", 0))
+		var p5: PlayerState = get_player_state(player_index5)
+		if p5:
+			var card_id: String = String(entry.get("card_id", ""))
+			p5.toggle_tap_card(card_id)
+			emit_signal("action_logged", "Undo Tap Toggle: %s" % card_id)
+			emit_signal("player_zone_changed", player_index5, "battlefield")
+			emit_signal("game_state_changed")
+			return true
+		return false
+	elif t == "remove_from_battlefield":
+		var player_index6: int = int(entry.get("player", 0))
+		var p6: PlayerState = get_player_state(player_index6)
+		if p6:
+			var card_id: String = String(entry.get("card_id", ""))
+			# Put card back on battlefield (untapped)
+			p6.battlefield.add_card(card_id)
+			p6.battlefield_tapped[card_id] = false
+			emit_signal("action_logged", "Undo Remove: %s" % card_id)
+			emit_signal("player_zone_changed", player_index6, "battlefield")
+			emit_signal("game_state_changed")
+			return true
+		return false
 	else:
 		emit_signal("action_logged", "Unknown action to undo")
 		return false

@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://e8j610ytydle" path="res://Scenes/Hand.gd" id="3_hand"]
 [ext_resource type="Script" uid="uid://xk5nmvvd8jos" path="res://Scenes/LibraryManager.gd" id="4_librarymgr"]
 [ext_resource type="Script" uid="uid://bp6s2vypwa4xa" path="res://Game/GameState.gd" id="5_gamestate"]
+[ext_resource type="Script" uid="uid://sux3ofnihi" path="res://Scenes/Battlefield.gd" id="6_battlefield"]
 
 [node name="Main" type="Node2D" unique_id=424223413]
 
@@ -14,6 +15,9 @@ script = ExtResource("1_bo1nx")
 
 [node name="Hand" type="Node2D" parent="." unique_id=1981855071]
 script = ExtResource("3_hand")
+
+[node name="Battlefield" type="Node2D" parent="." unique_id=1981855074]
+script = ExtResource("6_battlefield")
 
 [node name="GameState" type="Node" parent="." unique_id=1981855073]
 script = ExtResource("5_gamestate")
