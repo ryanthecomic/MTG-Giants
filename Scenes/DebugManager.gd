@@ -15,13 +15,13 @@ func _ready() -> void:
 func create_debug_draw_ui() -> void:
 	var panel = PanelContainer.new()
 	panel.name = "DrawPanel"
-	panel.anchor_left = 0.0
+	panel.anchor_left = 1.0
 	panel.anchor_top = 0.0
-	panel.anchor_right = 0.0
+	panel.anchor_right = 1.0
 	panel.anchor_bottom = 0.0
-	panel.offset_left = 16
+	panel.offset_left = -300
 	panel.offset_top = 16
-	panel.offset_right = 300
+	panel.offset_right = -16
 	panel.offset_bottom = 220
 	add_child(panel)
 

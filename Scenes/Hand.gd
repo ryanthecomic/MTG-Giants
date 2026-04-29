@@ -51,21 +51,24 @@ func is_point_near_hand(pos: Vector2) -> bool:
 func get_card_target_position(target_index: int, viewport_size: Vector2) -> Vector2:
 	var hand_y = viewport_size.y + hand_y_offset
 
+	var target_x: float = 0.0
+	var target_y: float = 0.0
+
 	if not uses_circular_layout():
 		var spacing = card_spacing
 		var total_width = cards.size() * spacing
 		var start_x = viewport_size.x / 2.0 - total_width / 2.0 + spacing / 2.0
 		var center_index = float(cards.size() - 1) / 2.0
-		var target_x = start_x + target_index * spacing
-		var target_y = hand_y + min(abs(float(target_index) - center_index) * hand_sag_step, hand_sag_max)
-		return Vector2(target_x, target_y)
+		target_x = start_x + target_index * spacing
+		target_y = hand_y + min(abs(float(target_index) - center_index) * hand_sag_step, hand_sag_max)
+	else:
+		var center_index_circ = float(cards.size() - 1) / 2.0 + hand_scroll_offset
+		var relative_index = float(target_index) - center_index_circ
+		var radius = max(viewport_size.x * hand_arc_radius_factor, 360.0)
+		var angle = relative_index * hand_arc_angle_step
+		target_x = viewport_size.x / 2.0 + sin(angle) * radius
+		target_y = hand_y + (1.0 - cos(angle)) * radius * 0.85
 
-	var center_index = float(cards.size() - 1) / 2.0 + hand_scroll_offset
-	var relative_index = float(target_index) - center_index
-	var radius = max(viewport_size.x * hand_arc_radius_factor, 360.0)
-	var angle = relative_index * hand_arc_angle_step
-	var target_x = viewport_size.x / 2.0 + sin(angle) * radius
-	var target_y = hand_y + (1.0 - cos(angle)) * radius * 0.85
 	return Vector2(target_x, target_y)
 
 func add_card(card: Node2D) -> void:

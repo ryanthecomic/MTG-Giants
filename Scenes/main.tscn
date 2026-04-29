@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://c1st8t41gcd2j" path="res://Scenes/DebugManager.gd" id="2_debugmgr"]
 [ext_resource type="Texture2D" uid="uid://bdol5tuhn4p7f" path="res://Images/BG_Table.png" id="3_8gbba"]
 [ext_resource type="Script" uid="uid://e8j610ytydle" path="res://Scenes/Hand.gd" id="3_hand"]
+[ext_resource type="Script" uid="uid://xk5nmvvd8jos" path="res://Scenes/LibraryManager.gd" id="4_librarymgr"]
 
 [node name="Main" type="Node2D" unique_id=424223413]
 
@@ -15,6 +16,9 @@ script = ExtResource("3_hand")
 
 [node name="DebugManager" type="CanvasLayer" parent="." unique_id=1981855070]
 script = ExtResource("2_debugmgr")
+
+[node name="LibraryManager" type="CanvasLayer" parent="." unique_id=1981855072]
+script = ExtResource("4_librarymgr")
 
 [node name="BgTable" type="Sprite2D" parent="." unique_id=1465730311]
 z_index = -2
