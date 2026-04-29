@@ -181,7 +181,7 @@ func update_preview_card() -> void:
 
 	var stack_count := get_stack_count(library_cards.size())
 	var viewport_size = get_viewport().get_visible_rect().size
-	var base_pos := Vector2(190, viewport_size.y - 350)
+	var base_pos := Vector2(200, viewport_size.y - 150)
 
 	# configure each preview child
 	for i in range(MAX_STACK_PREVIEW):
@@ -201,7 +201,7 @@ func update_preview_card() -> void:
 
 		card_node.global_position = base_pos + Vector2(stagger_x, stagger_y)
 		card_node.rotation_degrees = degrees
-		card_node.scale = Vector2(0.98, 0.98)
+		card_node.scale = Vector2(0.64, 0.64)
 
 		var card_image: Sprite2D = card_node.get_node_or_null("CardImage") as Sprite2D
 		if card_image == null:
